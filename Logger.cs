@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Collections.Generic;
 
 namespace ZD_3
 {
@@ -24,7 +25,7 @@ namespace ZD_3
             pathfinder4.Find("message");
 
             Console.WriteLine("выводим сообщение в консоль и записываем в файл, но запись только по пятницам");
-            Pathfinder pathfinder5 = new Pathfinder(new DualLogWriter());
+            Pathfinder pathfinder5 = new Pathfinder(new DualLogWriter(new ConsoleLogWritter(), new SecureLogWriter(new FileLogWritter())));
             pathfinder5.Find("message");
         }
     }
@@ -37,7 +38,6 @@ namespace ZD_3
     class Pathfinder
     {
         private ILogger _logger;
-        private string _longMassage;
 
         public Pathfinder(ILogger logger)
         {
@@ -46,8 +46,7 @@ namespace ZD_3
 
         public void Find(string path)
         {
-            _longMassage = "[" + DateTime.Now + "] что то ищем по пути " + path;
-            _logger.WriteError(_longMassage);
+            _logger.WriteError("[" + DateTime.Now + "] что то ищем по пути " + path);
         }
     }
 
@@ -70,6 +69,7 @@ namespace ZD_3
     class SecureLogWriter : ILogger
     {
         private ILogger _logger;
+        private DayOfWeek _needDay = DayOfWeek.Friday;
 
         public SecureLogWriter(ILogger logger)
         {
@@ -78,7 +78,7 @@ namespace ZD_3
 
         public void WriteError(string message)
         {
-            if (DateTime.Now.DayOfWeek == DayOfWeek.Friday)
+            if (DateTime.Now.DayOfWeek == _needDay)
             {
                 _logger.WriteError(message);
             }
@@ -87,22 +87,23 @@ namespace ZD_3
 
     class DualLogWriter : ILogger
     {
-        private ConsoleLogWritter _consoleLogger;
-        private SecureLogWriter _fileLogger;
+        private List<ILogger> _loggers = new List<ILogger>();
 
-        public DualLogWriter()
+        public DualLogWriter(params ILogger[] loggers)
         {
-            _consoleLogger = new ConsoleLogWritter();
-            _fileLogger = new SecureLogWriter(new FileLogWritter());
+            if (loggers == null || loggers.Length == 0)
+            {
+                throw new ArgumentException("Должен быть передан хотя бы один логгер");
+            }
+
+            _loggers.AddRange(loggers);
         }
 
         public void WriteError(string message)
         {
-            _consoleLogger.WriteError(message);
-
-            if (DateTime.Now.DayOfWeek == DayOfWeek.Friday)
+            foreach (ILogger logger in _loggers)
             {
-                _fileLogger.WriteError(message);
+                logger.WriteError(message);
             }
         }
     }
